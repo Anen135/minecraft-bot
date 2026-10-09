@@ -1,4 +1,4 @@
-class WanderBehavior {
+export default class WanderBehavior {
     constructor(bot) { this.bot = bot }
 
     async start() {
@@ -9,5 +9,3 @@ class WanderBehavior {
         this.bot.pathfinder.stop()
     }
 }
-
-export default WanderBehavior

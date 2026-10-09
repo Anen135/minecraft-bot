@@ -4,7 +4,7 @@ function log(scope, message) {
     )
 }
 
-module.exports = {
+export default {
     info(message) {
         log('INFO', message)
     },

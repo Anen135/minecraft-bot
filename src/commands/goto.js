@@ -1,4 +1,5 @@
-const { goals } = require('mineflayer-pathfinder')
+import pathfinder from 'mineflayer-pathfinder'
+const { goals } = pathfinder
 const { GoalBlock } = goals
 
 export default {

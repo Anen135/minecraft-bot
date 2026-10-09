@@ -1,4 +1,4 @@
-class MemoryService {
+export default class MemoryService {
     constructor() {
         this.data = {
             home: null,
@@ -23,5 +23,3 @@ class MemoryService {
         return this.data.waypoints[name]
     }
 }
-
-module.exports = MemoryService

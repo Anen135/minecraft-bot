@@ -1,4 +1,4 @@
-class PluginManager {
+export default class PluginManager {
     constructor(bot) {
         this.bot = bot
         this.plugins = new Map()
@@ -13,5 +13,3 @@ class PluginManager {
         return this.plugins.get(name)
     }
 }
-
-module.exports = PluginManager

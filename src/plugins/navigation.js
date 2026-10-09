@@ -1,3 +1,3 @@
-module.exports = function navigationPlugin(bot) {
+export default function navigationPlugin(bot) {
     console.log('[PLUGIN] Navigation loaded')
 }

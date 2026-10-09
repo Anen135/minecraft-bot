@@ -1,3 +1,3 @@
-module.exports = function chatPlugin(bot) {
+export default function chatPlugin(bot) {
     console.log('[PLUGIN] Chat loaded')
 }

@@ -1,4 +1,4 @@
-class FollowBehavior {
+export default class FollowBehavior {
     constructor(bot) { this.bot = bot }
 
     async start({ player }) {
@@ -9,5 +9,3 @@ class FollowBehavior {
         this.bot.pathfinder.stop()
     }
 }
-
-export default FollowBehavior

@@ -1,6 +1,8 @@
 import { createBot } from 'mineflayer'
-import { pathfinder, Movements } from 'mineflayer-pathfinder'
+import pathfinderPlugin from 'mineflayer-pathfinder'
 import minecraftData from 'minecraft-data'
+
+const { pathfinder, Movements } = pathfinderPlugin
 
 export default class BotManager {
     constructor(config) {

@@ -1,6 +1,6 @@
-require('dotenv').config()
+import 'dotenv/config'
 
-module.exports = {
+export default {
     minecraft: {
         host: process.env.MC_HOST || '127.0.0.1',
         port: Number(process.env.MC_PORT) || 25565,

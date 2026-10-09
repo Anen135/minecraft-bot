@@ -1,4 +1,4 @@
-class GuardBehavior {
+export default class GuardBehavior {
     constructor(bot) { this.bot = bot }
 
     async start(options = {}) {
@@ -9,5 +9,3 @@ class GuardBehavior {
         console.log( '[BEHAVIOR] Guard stopped' )
     }
 }
-
-export default GuardBehavior

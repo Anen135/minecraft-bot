@@ -1,4 +1,4 @@
-class NavigationService {
+export default class NavigationService {
     constructor(bot) {
         this.bot = bot
     }
@@ -8,5 +8,3 @@ class NavigationService {
         this.bot.clearControlStates()
     }
 }
-
-module.exports = NavigationService
