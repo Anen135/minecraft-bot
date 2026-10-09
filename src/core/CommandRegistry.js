@@ -12,37 +12,17 @@ export default class CommandRegistry {
             typeof command.execute !== 'function') {
             throw new Error('Command must have a nonempty name and an execute function.')
         }
-
         const name = command.name.toLowerCase()
-
         if (this.commands.has(name)) {
             throw new Error(`Command "${name}" is already registered.`)
         }
-
         this.commands.set(name, command)
     }
 
-    unregister(name) {
-        return this.commands.delete(name.toLowerCase())
-    }
-
-    get(name) {
-        return this.commands.get(name.toLowerCase())
-    }
-
-    has(name) {
-        return this.commands.has(name.toLowerCase())
-    }
-
-    all() {
-        return [...this.commands.values()]
-    }
-
-    names() {
-        return [...this.commands.keys()]
-    }
-
-    get size() {
-        return this.commands.size
-    }
+    unregister(name) { return this.commands.delete(name.toLowerCase()) }
+    get(name) { return this.commands.get(name.toLowerCase()) }
+    has(name) { return this.commands.has(name.toLowerCase()) }
+    all() { return [...this.commands.values()] }
+    names() { return [...this.commands.keys()] }
+    get size() { return this.commands.size }
 }

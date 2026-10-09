@@ -15,6 +15,5 @@ manager.start()
 
 manager.bot.once('spawn', () => {
     manager.commandManager = new CommandManager(manager.bot, config, registry)
-
     manager.commandManager.load()
 })

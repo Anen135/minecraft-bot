@@ -1,19 +1,9 @@
 function log(scope, message) {
-    console.log(
-        `[${new Date().toISOString()}] [${scope}] ${message}`
-    )
+    console.log( `[${new Date().toISOString()}] [${scope}] ${message}` )
 }
 
 export default {
-    info(message) {
-        log('INFO', message)
-    },
-
-    warn(message) {
-        log('WARN', message)
-    },
-
-    error(message) {
-        log('ERROR', message)
-    }
+    info(message) { log('INFO', message) },
+    warn(message) { log('WARN', message) },
+    error(message) { log('ERROR', message) }
 }

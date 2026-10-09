@@ -6,15 +6,12 @@ export default class CommandLoader {
     }
 
     async load() {
-        const files = readdirSync(this.commandsUrl, { withFileTypes: true })
-            .filter(file => file.isFile() && file.name.endsWith('.js'))
+        const files = readdirSync(this.commandsUrl, { withFileTypes: true }) .filter(file => file.isFile() && file.name.endsWith('.js'))
         const commands = []
 
         for (const file of files) {
             try {
-                const { default: command } = await import(
-                    new URL(encodeURIComponent(file.name), this.commandsUrl)
-                )
+                const { default: command } = await import( new URL(encodeURIComponent(file.name), this.commandsUrl) )
 
                 if (typeof command?.name !== 'string' || !command.name.trim() ||
                     typeof command.execute !== 'function') {
