@@ -1,9 +1,9 @@
 import { createBot } from 'mineflayer'
 import pathfinderPlugin from 'mineflayer-pathfinder'
 import minecraftData from 'minecraft-data'
+import { plugin as collectBlock } from 'mineflayer-collectblock'
 
 const { pathfinder, Movements } = pathfinderPlugin
-
 export default class BotManager {
     constructor(config) {
         this.config = config
@@ -14,6 +14,7 @@ export default class BotManager {
     start() {
         this.bot = createBot(this.config.minecraft)
         this.bot.loadPlugin(pathfinder)
+        this.bot.loadPlugin(collectBlock)
         this.registerEvents()
     }
 
