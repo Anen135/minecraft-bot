@@ -1,19 +1,14 @@
 import minecraftData from 'minecraft-data'
 
 export default {
-    name: 'chopTree',
+    name: 'chop',
 
     async execute({ bot }) {
         const mcData = minecraftData(bot.version)
 
-        const logIds = [
-            mcData.blocksByName.oak_log?.id,
-            mcData.blocksByName.spruce_log?.id,
-            mcData.blocksByName.birch_log?.id
-        ].filter(Boolean)
 
         const block = bot.findBlock({
-            matching: block => logIds.includes(block.type),
+            matching: block => block.name.endsWith('_log'),
             maxDistance: 32
         })
 

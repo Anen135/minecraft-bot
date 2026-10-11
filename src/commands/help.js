@@ -3,5 +3,6 @@ export default {
 
     async execute({ bot }) {
         bot.chat( 'Commands: !help !follow !stop !goto !inventory' )
+        bot.chat( "!chop" )
     }
 }
