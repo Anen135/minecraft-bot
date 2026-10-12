@@ -3,40 +3,41 @@ import { interruptedErrors } from '../utils/pathErrors.js'
 const { goals } = pathfinder
 const { GoalBlock } = goals
 
-function a(bot, username, args) {
-    if (args.length != 0) return null
-    const coords = bot.players[username]?.entity?.position
+function fromSenderPosition(bot, username, args) {
+    if (args.length !== 0) return null
+    const coords = bot.players?.[username]?.entity?.position
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
 
-function b(bot, args) {
-    if (args.length != 1) return null
-    const coords = bot.players[args[0]]?.entity?.position
+function fromPlayerName(bot, args) {
+    if (args.length !== 1) return null
+    const coords = bot.players?.[args[0]]?.entity?.position
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
-function c(args) {
-    if (args.length != 3) return null
-    const [x, y, z] = args.slice(0, 3).map(Number)
-    if ([x, y, z].some(coord => isNaN(coord))) return null
+
+function fromCoordinates(args) {
+    if (args.length !== 3) return null
+    const [x, y, z] = args.map(Number)
+    if ([x, y, z].some(coord => !Number.isFinite(coord))) return null
     return [ x, y, z ]
 }
 
-function router(bot, username, args) {
-    return a(bot, username, args) || b(bot, args) || c(args)
+function resolveCoordinates(bot, username, args) {
+    return fromSenderPosition(bot, username, args) || fromPlayerName(bot, args) || fromCoordinates(args)
 }
 
 export default {
     name: 'goto',
 
     async execute({ bot, username, args }) {
-        const coordinates = router(bot, username, args)
+        const coordinates = resolveCoordinates(bot, username, args)
         if (!coordinates) {
             bot.chat('Usage: !goto x y z')
             return
         }
-        const [x, y, z] = coordinates.map(Number)
+        const [x, y, z] = coordinates
 
         bot.chat(`Going to ${x} ${y} ${z}`)
 
