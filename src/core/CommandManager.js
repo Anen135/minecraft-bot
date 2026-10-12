@@ -13,7 +13,7 @@ export default class CommandManager {
     }
 
     async handle(username, message) {
-        const prefix = this.config.bot.prefix
+        const {prefix} = this.config.bot
         if (!message.startsWith(prefix)) return
         const args = message.slice(prefix.length) .trim() .split(/\s+/)
         const commandName = args.shift()?.toLowerCase()
