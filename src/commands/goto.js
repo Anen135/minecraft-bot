@@ -3,20 +3,20 @@ import { interruptedErrors } from '../utils/pathErrors.js'
 const { goals } = pathfinder
 const { GoalBlock } = goals
 
-function a(bot, username, args) {
+function _a(bot, username, args) {
     if (args.length != 0) return null
     const coords = bot.players[username]?.entity?.position
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
 
-function b(bot, args) {
+function _b(bot, args) {
     if (args.length != 1) return null
     const coords = bot.players[args[0]]?.entity?.position
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
-function c(args) {
+function _c(args) {
     if (args.length != 3) return null
     const [x, y, z] = args.slice(0, 3).map(Number)
     if ([x, y, z].some(coord => isNaN(coord))) return null
@@ -24,7 +24,7 @@ function c(args) {
 }
 
 function router(bot, username, args) {
-    return a(bot, username, args) || b(bot, args) || c(args)
+    return _a(bot, username, args) || _b(bot, args) || _c(args)
 }
 
 export default {
