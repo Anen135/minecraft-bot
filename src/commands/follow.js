@@ -1,19 +1,15 @@
-import pathfinder from 'mineflayer-pathfinder'
-const { goals } = pathfinder
-const { GoalFollow } = goals
+import NavigationService from '../services/NavigationService.js'
+
+// Тонкий интерфейс: выбор цели (свой ник или аргумент) — здесь, следование — в сервисе.
+//
+// !follow            → следовать за вызвавшим команду
+// !follow <player>   → следовать за указанным игроком
 
 export default {
     name: 'follow',
 
     async execute({ bot, username, args }) {
         const targetName = args[0] || username
-        const player = bot.players[targetName]
-
-        if (!player?.entity) {
-            bot.chat(`I cannot see ${targetName}.`)
-            return
-        }
-        bot.pathfinder.setGoal(new GoalFollow(player.entity, 2), true)
-        bot.chat(`Following ${targetName}.`)
+        await new NavigationService(bot).follow(targetName)
     }
 }
