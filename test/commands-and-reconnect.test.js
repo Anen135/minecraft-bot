@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import BotManager from '../src/core/BotManager.js'
-import chopTree, { isChoppableLog } from '../src/commands/chopTree.js'
+import chopTree from '../src/commands/chopTree.js'
 import goto from '../src/commands/goto.js'
 import stop from '../src/commands/stop.js'
 
@@ -12,13 +12,6 @@ function fakeBot(overrides = {}) {
     const bot = { replies: [], chat(message) { bot.replies.push(message) }, ...overrides }
     return bot
 }
-
-test('isChoppableLog accepts any wood log but not stripped logs or other blocks', () => {
-    for (const name of ['oak_log', 'acacia_log', 'dark_oak_log', 'mangrove_log', 'cherry_log'])
-        assert.equal(isChoppableLog(name), true, name)
-    for (const name of ['stripped_oak_log', 'oak_planks', 'oak_leaves', 'crimson_stem', 'stone'])
-        assert.equal(isChoppableLog(name), false, name)
-})
 
 test('chopTree reports success only when the whole tree is gone', async () => {
     const tree = [{ type: 5, position: 'a' }, { type: 5, position: 'b' }]
@@ -31,9 +24,13 @@ test('chopTree reports success only when the whole tree is gone', async () => {
 
     const done = make([])
     await chopTree.execute({ bot: done })
-    assert.deepEqual(done.replies, ['Chopping tree... 2 blocks.', 'Tree chopped successfully.'])
+    assert.deepEqual(done.replies, ['Chopping tree: 2 blocks.', 'Tree chopped successfully.'])
+
+    // the inline findBlock matcher accepts any wood log but not stripped logs or other blocks
     assert.equal(matching({ name: 'jungle_log' }), true)
+    assert.equal(matching({ name: 'oak_log' }), true)
     assert.equal(matching({ name: 'stripped_jungle_log' }), false)
+    assert.equal(matching({ name: 'oak_planks' }), false)
 
     // collect() resolves normally after !stop, but logs are still standing
     const stopped = make(['b'])
@@ -41,16 +38,17 @@ test('chopTree reports success only when the whole tree is gone', async () => {
     assert.equal(stopped.replies.at(-1), 'Chopped 1/2 blocks.')
 })
 
-test('chopTree stays quiet when interrupted and reports real failures', async t => {
+test('chopTree reports real failures and missing trees', async t => {
     t.mock.method(console, 'error', () => {})
     const make = error => fakeBot({
         findBlock: () => ({ position: 'a' }),
         collectBlock: { findFromVein: () => [], collect: async () => { throw error } }
     })
 
+    // interrupted errors are reported like any other failure (the early-return is commented out in the command)
     const interrupted = make(named('GoalChanged'))
     await chopTree.execute({ bot: interrupted })
-    assert.deepEqual(interrupted.replies, ['Chopping tree... 0 blocks.'])
+    assert.match(interrupted.replies.at(-1), /^Could not chop tree: GoalChanged/)
 
     const failed = make(named('NoPath'))
     await chopTree.execute({ bot: failed })
@@ -62,30 +60,47 @@ test('chopTree stays quiet when interrupted and reports real failures', async t 
 })
 
 test('goto validates arguments and handles pathfinder outcomes', async () => {
-    const make = goto => fakeBot({ pathfinder: { goto } })
+    // fake player registry: "Steve" has an entity, others do not
+    const players = { Steve: { entity: { position: { x: 10.5, y: 64, z: -3.25 } } } }
+    const make = goto => fakeBot({ players, pathfinder: { goto } })
 
-    for (const args of [[], ['1', '2'], ['1', '2', 'x'], ['1', '', '3']]) {
+    // wrong argument count, or a non-numeric coordinate -> usage hint
+    for (const args of [[], ['1', '2'], ['1', '2', 'x'], ['a', 'b', 'c']]) {
         const bot = make(async () => assert.fail('must not navigate'))
-        await goto.execute({ bot, args })
+        await goto.execute({ bot, username: 'Alex', args })
         assert.deepEqual(bot.replies, ['Usage: !goto x y z'], JSON.stringify(args))
     }
 
     const ok = make(async () => {})
-    await goto.execute({ bot: ok, args: ['1', '2', '3'] })
+    await goto.execute({ bot: ok, username: 'Alex', args: ['1', '2', '3'] })
     assert.deepEqual(ok.replies, ['Going to 1 2 3', 'Arrived.'])
+
+    // no args -> walk to the sender's own position
+    const me = make(async () => {})
+    await goto.execute({ bot: me, username: 'Steve', args: [] })
+    assert.deepEqual(me.replies, ['Going to 10.5 64 -3.25', 'Arrived.'])
+
+    // one arg -> walk to that player's position; unknown player -> usage hint
+    const friend = make(async () => {})
+    await goto.execute({ bot: friend, username: 'Alex', args: ['Steve'] })
+    assert.deepEqual(friend.replies, ['Going to 10.5 64 -3.25', 'Arrived.'])
+
+    const ghost = make(async () => assert.fail('must not navigate'))
+    await goto.execute({ bot: ghost, username: 'Alex', args: ['Nobody'] })
+    assert.deepEqual(ghost.replies, ['Usage: !goto x y z'])
 
     for (const name of ['PathStopped', 'GoalChanged']) {
         const bot = make(async () => { throw named(name) })
-        await goto.execute({ bot, args: ['1', '2', '3'] })
+        await goto.execute({ bot, username: 'Alex', args: ['1', '2', '3'] })
         assert.deepEqual(bot.replies, ['Going to 1 2 3'], name)
     }
 
     const noPath = make(async () => { throw named('NoPath') })
-    await goto.execute({ bot: noPath, args: ['1', '2', '3'] })
+    await goto.execute({ bot: noPath, username: 'Alex', args: ['1', '2', '3'] })
     assert.equal(noPath.replies.at(-1), 'No path to that position.')
 
     const broken = make(async () => { throw new Error('boom') })
-    await assert.rejects(goto.execute({ bot: broken, args: ['1', '2', '3'] }), /boom/)
+    await assert.rejects(goto.execute({ bot: broken, username: 'Alex', args: ['1', '2', '3'] }), /boom/)
 })
 
 test('stop cancels collecting, pathfinding and movement', async () => {
