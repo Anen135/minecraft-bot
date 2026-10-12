@@ -1,4 +1,4 @@
-import { isInterrupted } from '../utils/pathErrors.js'
+import { interruptedErrors } from '../utils/pathErrors.js'
 
 const SEARCH_DISTANCE = 32
 const MAX_BLOCKS = 64
@@ -9,7 +9,7 @@ export default {
 
     async execute({ bot }) {
         const block = bot.findBlock({
-            matching: block => name => name.endsWith('_log') && !name.startsWith('stripped_'),
+            matching: block => block.name.endsWith('_log') && !block.name.startsWith('stripped_'),
             maxDistance: SEARCH_DISTANCE
         })
 
@@ -20,22 +20,19 @@ export default {
 
         const tree = bot.collectBlock.findFromVein(block, MAX_BLOCKS, MAX_VEIN_DISTANCE)
 
-        bot.chat(`Chopping tree... ${tree.length} blocks.`)
+        bot.chat(`Chopping tree: ${tree.length} blocks.`)
 
         try {
             await bot.collectBlock.collect(tree)
         } catch (error) {
-            if (isInterrupted(error)) return
+            // if (interruptedErrors.includes(error?.name)) return
             console.error('[CHOP TREE]', error)
             bot.chat(`Could not chop tree: ${error.name}: ${error.message}`)
             return
         }
 
-        // collect() also resolves when it was stopped or skipped unreachable blocks, so check what is left.
         const left = tree.filter(log => bot.blockAt(log.position)?.type === log.type).length
 
-        bot.chat(left === 0
-            ? 'Tree chopped successfully.'
-            : `Chopped ${tree.length - left}/${tree.length} blocks.`)
+        bot.chat(left === 0 ? 'Tree chopped successfully.' : `Chopped ${tree.length - left}/${tree.length} blocks.`)
     }
 }

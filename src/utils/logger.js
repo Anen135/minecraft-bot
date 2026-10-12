@@ -3,7 +3,7 @@ function log(scope, message) {
 }
 
 export default {
-    info(message) { log('INFO', message) },
-    warn(message) { log('WARN', message) },
-    error(message) { log('ERROR', message) }
+    info(message) { log('[INFO]', message) },
+    warn(message) { log('[WARN]', message) },
+    error(message) { log('[ERROR]', message) }
 }
