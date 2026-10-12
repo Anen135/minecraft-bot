@@ -1,11 +1,14 @@
+import MiningService from '../services/MiningService.js'
+import NavigationService from '../services/NavigationService.js'
+
+// Интерфейс: !stop останавливает все текущие действия бота — механика в сервисах.
+
 export default {
     name: 'stop',
 
     async execute({ bot }) {
-        // collectBlock keeps looping while it has targets, even if pathfinding is stopped
-        bot.collectBlock?.targets?.clear()
-        bot.pathfinder.stop()
-        bot.clearControlStates()
+        new MiningService(bot).stop()
+        new NavigationService(bot).stop()
         bot.chat('Stopped.')
     }
 }

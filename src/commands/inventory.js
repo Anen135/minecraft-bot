@@ -1,15 +1,11 @@
+import InventoryService from '../services/InventoryService.js'
+
+// Интерфейс: !inventory показывает содержимое инвентаря — логика в InventoryService.
+
 export default {
     name: 'inventory',
 
     async execute({ bot }) {
-        const items = bot.inventory.items()
-
-        if (!items.length) {
-            bot.chat('Inventory is empty.')
-            return
-        }
-
-        const text = items.map(item => `${item.name} x${item.count}`).join(', ')
-        bot.chat(text.slice(0, 240))
+        bot.chat(new InventoryService(bot).describe())
     }
 }

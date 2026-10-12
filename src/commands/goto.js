@@ -1,30 +1,30 @@
-import pathfinder from 'mineflayer-pathfinder'
-import { interruptedErrors } from '../utils/pathErrors.js'
-const { goals } = pathfinder
-const { GoalBlock } = goals
+import NavigationService from '../services/NavigationService.js'
+import PlayerService from '../services/PlayerService.js'
 
-function _a(bot, username, args) {
-    if (args.length != 0) return null
-    const coords = bot.players[username]?.entity?.position
-    if (!coords) return null
-    return [ coords.x, coords.y, coords.z ]
-}
+// Тонкий интерфейс: разбор формы команды — в команде, навигация — в сервисе.
+//
+// !goto                 → идти к игроку, вызвавшему команду
+// !goto <player>        → идти к указанному игроку
+// !goto <x> <y> <z>     → идти к координатам
 
-function _b(bot, args) {
-    if (args.length != 1) return null
-    const coords = bot.players[args[0]]?.entity?.position
-    if (!coords) return null
-    return [ coords.x, coords.y, coords.z ]
-}
-function _c(args) {
-    if (args.length != 3) return null
-    const [x, y, z] = args.slice(0, 3).map(Number)
-    if ([x, y, z].some(coord => isNaN(coord))) return null
-    return [ x, y, z ]
-}
+export function router(bot, username, args) {
+    const players = new PlayerService(bot)
 
-function router(bot, username, args) {
-    return _a(bot, username, args) || _b(bot, args) || _c(args)
+    // Форма A: без аргументов — позиция автора команды.
+    if (args.length === 0) return players.getCoordinates(username)
+
+    // Форма B: один аргумент — имя игрока.
+    if (args.length === 1) return players.getCoordinates(args[0])
+
+    // Форма C: три аргумента — координаты.
+    if (args.length === 3) {
+        const [x, y, z] = args.map(Number)
+        // '' и whitespace превращаются в 0 — это некорректный ввод.
+        if ([x, y, z].some(coord => isNaN(coord)) || args.some(arg => arg.trim() === '')) return null
+        return [x, y, z]
+    }
+
+    return null
 }
 
 export default {
@@ -38,18 +38,6 @@ export default {
         }
         const [x, y, z] = coordinates.map(Number)
 
-        bot.chat(`Going to ${x} ${y} ${z}`)
-
-        try {
-            await bot.pathfinder.goto(new GoalBlock(x, y, z))
-            bot.chat('Arrived.')
-        } catch (error) {
-            if (interruptedErrors.includes(error.name)) return
-            if (error.name == 'NoPath') {
-                bot.chat('No path to that position.')
-                return
-            }
-            throw error
-        }
+        await new NavigationService(bot).goto(x, y, z)
     }
 }
