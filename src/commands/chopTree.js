@@ -1,38 +1,17 @@
-import { interruptedErrors } from '../utils/pathErrors.js'
-
-const SEARCH_DISTANCE = 32
-const MAX_BLOCKS = 64
-const MAX_VEIN_DISTANCE = 12
+import MiningService from '../services/MiningService.js'
 
 export default {
     name: 'chop',
 
     async execute({ bot }) {
-        const block = bot.findBlock({
-            matching: block => block.name.endsWith('_log') && !block.name.startsWith('stripped_'),
-            maxDistance: SEARCH_DISTANCE
+        const result = await MiningService.chopTree(bot, {
+            onStart: count => bot.chat(`Chopping tree: ${count} blocks.`)
         })
-
-        if (!block) {
-            bot.chat('No log found nearby.')
+        if (result.status === 'interrupted') return
+        if (result.status === 'error') {
+            bot.chat(result.code === 'no_log' ? result.message : `Could not chop tree: ${result.name}: ${result.message}`)
             return
         }
-
-        const tree = bot.collectBlock.findFromVein(block, MAX_BLOCKS, MAX_VEIN_DISTANCE)
-
-        bot.chat(`Chopping tree: ${tree.length} blocks.`)
-
-        try {
-            await bot.collectBlock.collect(tree)
-        } catch (error) {
-            // if (interruptedErrors.includes(error?.name)) return
-            console.error('[CHOP TREE]', error)
-            bot.chat(`Could not chop tree: ${error.name}: ${error.message}`)
-            return
-        }
-
-        const left = tree.filter(log => bot.blockAt(log.position)?.type === log.type).length
-
-        bot.chat(left === 0 ? 'Tree chopped successfully.' : `Chopped ${tree.length - left}/${tree.length} blocks.`)
+        bot.chat(result.completed === result.total ? 'Tree chopped successfully.' : `Chopped ${result.completed}/${result.total} blocks.`)
     }
 }

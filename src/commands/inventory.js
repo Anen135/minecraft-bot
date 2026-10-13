@@ -1,8 +1,10 @@
+import InventoryService from '../services/InventoryService.js'
+
 export default {
     name: 'inventory',
 
     async execute({ bot }) {
-        const items = bot.inventory.items()
+        const { items } = InventoryService.list(bot)
 
         if (!items.length) {
             bot.chat('Inventory is empty.')

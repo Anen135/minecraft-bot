@@ -1,19 +1,15 @@
-import pathfinder from 'mineflayer-pathfinder'
-const { goals } = pathfinder
-const { GoalFollow } = goals
+import NavigationService from '../services/NavigationService.js'
 
 export default {
     name: 'follow',
 
     async execute({ bot, username, args }) {
         const targetName = args[0] || username
-        const player = bot.players[targetName]
-
-        if (!player?.entity) {
+        const result = NavigationService.follow(bot, targetName)
+        if (result.status === 'player_not_found') {
             bot.chat(`I cannot see ${targetName}.`)
             return
         }
-        bot.pathfinder.setGoal(new GoalFollow(player.entity, 2), true)
         bot.chat(`Following ${targetName}.`)
     }
 }

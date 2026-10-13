@@ -9,6 +9,18 @@ import CommandLoader from '../src/core/CommandLoader.js'
 import CommandManager from '../src/core/CommandManager.js'
 import CommandRegistry from '../src/core/CommandRegistry.js'
 
+test('repository commands load and register with their existing and manual ability names', async t => {
+    t.mock.method(console, 'log', () => {})
+    const errors = t.mock.method(console, 'error', () => {})
+    const warnings = t.mock.method(console, 'warn', () => {})
+    const commands = await new CommandLoader(new URL('../src/commands/', import.meta.url)).load()
+    const registry = new CommandRegistry(commands)
+    assert.deepEqual(registry.names().sort(),
+        ['chop', 'craft', 'equip', 'follow', 'goto', 'help', 'inventory', 'mine', 'stop'])
+    assert.equal(errors.mock.callCount(), 0)
+    assert.equal(warnings.mock.callCount(), 0)
+})
+
 test('loader loads default ESM commands and continues after invalid or failing files', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'minecraft-bot-commands-'))
     t.after(() => rm(directory, { recursive: true, force: true }))

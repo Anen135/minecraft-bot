@@ -3,6 +3,6 @@ export default {
 
     async execute({ bot }) {
         bot.chat( 'Commands: !help !follow !stop !goto !inventory' )
-        bot.chat( "!chop" )
+        bot.chat( '!chop !mine <block> [count] !equip <item> [destination] !craft <item> [count]' )
     }
 }

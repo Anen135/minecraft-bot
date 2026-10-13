@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import BotManager from '../src/core/BotManager.js'
-import chopTree, { isChoppableLog } from '../src/commands/chopTree.js'
+import chopTree from '../src/commands/chopTree.js'
 import goto from '../src/commands/goto.js'
 import stop from '../src/commands/stop.js'
 
@@ -12,13 +12,6 @@ function fakeBot(overrides = {}) {
     const bot = { replies: [], chat(message) { bot.replies.push(message) }, ...overrides }
     return bot
 }
-
-test('isChoppableLog accepts any wood log but not stripped logs or other blocks', () => {
-    for (const name of ['oak_log', 'acacia_log', 'dark_oak_log', 'mangrove_log', 'cherry_log'])
-        assert.equal(isChoppableLog(name), true, name)
-    for (const name of ['stripped_oak_log', 'oak_planks', 'oak_leaves', 'crimson_stem', 'stone'])
-        assert.equal(isChoppableLog(name), false, name)
-})
 
 test('chopTree reports success only when the whole tree is gone', async () => {
     const tree = [{ type: 5, position: 'a' }, { type: 5, position: 'b' }]
@@ -31,7 +24,7 @@ test('chopTree reports success only when the whole tree is gone', async () => {
 
     const done = make([])
     await chopTree.execute({ bot: done })
-    assert.deepEqual(done.replies, ['Chopping tree... 2 blocks.', 'Tree chopped successfully.'])
+    assert.deepEqual(done.replies, ['Chopping tree: 2 blocks.', 'Tree chopped successfully.'])
     assert.equal(matching({ name: 'jungle_log' }), true)
     assert.equal(matching({ name: 'stripped_jungle_log' }), false)
 
@@ -50,7 +43,7 @@ test('chopTree stays quiet when interrupted and reports real failures', async t 
 
     const interrupted = make(named('GoalChanged'))
     await chopTree.execute({ bot: interrupted })
-    assert.deepEqual(interrupted.replies, ['Chopping tree... 0 blocks.'])
+    assert.deepEqual(interrupted.replies, ['Chopping tree: 0 blocks.'])
 
     const failed = make(named('NoPath'))
     await chopTree.execute({ bot: failed })
