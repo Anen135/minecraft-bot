@@ -1,5 +1,5 @@
-# Правила разработки
+# Development Guidelines
 
-## Однострочные функции
+## One-line functions
 
-Выделять выражение в однострочную функцию имеет смысл только тогда, когда есть конкретная причина ожидать изменения этой логики при дальнейшем развитии проекта. Не создавать функции просто ради имени для выражения: понятный код зачастую объясняет себя сам. Если такой причины нет, оставлять выражение непосредственно в месте использования; гипотетическая возможность будущих изменений не является достаточным основанием.
+Extract an expression into a one-line function only when there is a concrete reason to expect that logic to change as the project develops. Do not create functions just to give an expression a name: clear code often explains itself. If there is no such reason, keep the expression at its call site; a hypothetical future change is not enough.

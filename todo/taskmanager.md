@@ -1,26 +1,26 @@
-# TODO — Автоматизация (LATER)
+# TODO — Automation (LATER)
 
-TaskManager, Planner и автономный агент не реализованы и не входят в этап 1. Сейчас пользователь вручную вызывает способности через Command → Service → Mineflayer. !mine и !craft выполняют явно заданную операцию, а не создают план добычи ресурсов.
+TaskManager, Planner, and an autonomous agent are not implemented and are outside Stage 1. Users currently invoke abilities manually through `Command → Service → Mineflayer`. `!mine` and `!craft` perform explicitly requested operations; they do not plan resource gathering.
 
-## Основа для будущих задач
+## Foundation for Future Tasks
 
-- [x] Способности навигации, инвентаря, добычи и простого крафта доступны через Service API без эмуляции чата.
-- [x] Команды сохраняют пользовательский parsing/routing, сервисы содержат Minecraft-механику.
-- [x] Сервисы принимают актуальный экземпляр bot; reconnect не требует внедрения контейнера сервисов.
+- [x] Navigation, inventory, mining, and simple crafting abilities are available through the Service API without simulating chat.
+- [x] Commands handle user input and routing; services contain Minecraft behavior.
+- [x] Services receive the current `bot` instance; reconnect does not require a service container.
 
-## LATER: задачи и планирование
+## LATER: Tasks and Planning
 
-- [ ] TaskManager: запуск, отмена, результат и обработка ошибок задачи.
-- [ ] Composite tasks, использующие существующие сервисы.
-- [ ] Определить правила конфликтов действий и прерывания при смерти/reconnect.
-- [ ] ProductionPlanner и зависимости рецептов.
-- [ ] Autonomous resource acquisition.
-- [ ] Автоматическое создание инструментов и верстака.
-- [ ] Guard, patrol и другие автономные сценарии.
-- [ ] Сохранение и восстановление задач, если оно действительно потребуется.
+- [ ] TaskManager: start, cancel, return results, and handle task errors.
+- [ ] Composite tasks that use existing services.
+- [ ] Define action conflicts and interruption behavior for death/reconnect.
+- [ ] ProductionPlanner and recipe dependencies.
+- [ ] Autonomous resource gathering.
+- [ ] Automatic tool and crafting table creation.
+- [ ] Guard, patrol, and other autonomous scenarios.
+- [ ] Persist and restore tasks if that proves necessary.
 
-Не дублировать существующие Goals Pathfinder: GoalFollow уже следует за движущимся игроком. На текущем этапе !goto использует статическую позицию, !follow — динамическую цель, !stop отменяет выполняемые операции без нового BehaviorManager.
+Do not duplicate Pathfinder Goals: `GoalFollow` already tracks a moving player. At this stage, `!goto` targets a static position, `!follow` uses a dynamic goal, and `!stop` cancels active operations without a new BehaviorManager.
 
-Будущая автоматизация должна обращаться к сервисам напрямую, например await NavigationService.goto(bot, x, y, z). Её структуру и модель состояний следует выбирать на следующем этапе по реальным задачам, без предварительного создания пустых модулей.
+Future automation should call services directly, for example `await NavigationService.goto(bot, x, y, z)`. Choose its structure and state model in a later stage based on actual tasks; do not create empty modules in advance.
 
-Текущая реализация и ближайшие ручные возможности: [архитектурный TODO](architecturetodo.md).
+See the [architecture TODO](architecturetodo.md) for current implementation and upcoming manual abilities.

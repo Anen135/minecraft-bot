@@ -1,50 +1,49 @@
-# TODO — Core abilities, этап 1
+# TODO — Core Abilities, Stage 1
 
-Текущий этап: ручное управление способностями бота. Этот план заменяет прежний проект расширенной архитектуры: ServiceContainer, handlers, новый Command API и State Machine сейчас не нужны.
+Current stage: manual control of the bot's abilities. This plan replaces the earlier proposal for a broader architecture: a ServiceContainer, handlers, a new Command API, and a State Machine are not needed now.
 
 ```text
 User → Command → Service → Mineflayer
 ```
 
-Команды отвечают за parsing, validation, routing и output. Сервисы реализуют способности и обрабатывают ошибки Minecraft, не зная синтаксиса чат-команд. Они получают актуальный bot в каждом вызове, в том числе после reconnect.
+Commands handle parsing, validation, routing, and output. Services implement abilities and handle Minecraft errors without knowing chat command syntax. They receive the current `bot` on each call, including after reconnect.
 
-## Реализовано
+## Completed
 
-- [x] Сохранена структура commands/, services/, core/, plugins/, behaviors/, utils/.
-- [x] CommandLoader загружает и проверяет ESM-команды; CommandRegistry проверяет дубликаты.
-- [x] CommandManager разбирает префикс и передаёт { bot, username, args }, изолирует ошибки команд.
-- [x] BotManager создаёт бота, подключает pathfinder/collectblock и переподключается с ограниченной растущей задержкой.
-- [x] NavigationService.goto(bot, x, y, z), follow(bot, username), stop(bot).
-- [x] Сохранены !goto, !goto <player>, !goto <x> <y> <z> и !follow [player].
-- [x] !stop останавливает сбор блоков, навигацию и control states.
-- [x] InventoryService.list(bot), equip(bot, itemName, destination); !inventory, !equip.
-- [x] MiningService.chopTree(bot), mine(bot, blockName, count); !chop, !mine.
-- [x] CraftingService.craft(bot, itemName, count); !craft из имеющихся ресурсов, без recursive crafting.
-- [x] Unit tests с моками для Service API, маршрутизации и ошибок, без Minecraft-сервера.
-- [x] README описывает фактическое ручное управление и границы реализации.
+- [x] Preserved the `commands/`, `services/`, `core/`, `plugins/`, `behaviors/`, and `utils/` structure.
+- [x] `CommandLoader` loads and validates ESM commands; `CommandRegistry` rejects duplicates.
+- [x] `CommandManager` parses the prefix, passes `{ bot, username, args }`, and isolates command errors.
+- [x] `BotManager` creates the bot, loads pathfinder/collectblock, and reconnects with capped exponential backoff.
+- [x] `NavigationService.goto(bot, x, y, z)`, `follow(bot, username)`, and `stop(bot)`.
+- [x] Preserved `!goto`, `!goto <player>`, `!goto <x> <y> <z>`, and `!follow [player]`.
+- [x] `!stop` stops block collection, navigation, and control states.
+- [x] `InventoryService.list(bot)` and `equip(bot, itemName, destination)`; `!inventory` and `!equip`.
+- [x] `MiningService.chopTree(bot)` and `mine(bot, blockName, count)`; `!chop` and `!mine`.
+- [x] `CraftingService.craft(bot, itemName, count)`; `!craft` uses available resources without recursive crafting.
+- [x] Unit tests use mocks for Service APIs, routing, and errors; no Minecraft server is required.
+- [x] README describes the implemented manual controls and their limits.
 
-## Следующие ручные возможности
+## Next Manual Abilities
 
-- [ ] Расширить набор core services по реальной функциональности.
-- [ ] Добавить ручной smelting.
-- [ ] Добавить ручной building/place API.
-- [ ] Добавить combat API.
-- [ ] Добавить еду, сон, farming и работу с контейнерами.
-- [ ] Добиться покрытия всех survival core abilities командами.
-- [ ] Добавить waypoint/home команды поверх существующего MemoryService.
-- [ ] Добавить права доступа/whitelist; OWNER_NAME пока не проверяется.
-- [ ] Добавить полноценное завершение процесса с отменой действий и сохранением памяти.
-- [ ] Проверить поведение на живом Minecraft-сервере.
+- [ ] Expand core services as real functionality is added.
+- [ ] Add manual smelting.
+- [ ] Add a manual building/place API.
+- [ ] Add a combat API.
+- [ ] Add food, sleep, farming, and container operations.
+- [ ] Cover all survival core abilities with commands.
+- [ ] Add waypoint/home commands using the existing `MemoryService`.
+- [ ] Add access control/whitelist; `OWNER_NAME` is not checked yet.
+- [ ] Add full process shutdown that cancels actions and saves memory.
+- [ ] Test behavior on a live Minecraft server.
+- [ ] Resolve collectblock cancellation limits during tool equipping and item pickup without changing the user interface.
 
 ## LATER
 
-- [ ] TaskManager и composite tasks.
-- [ ] ProductionPlanner и recipe dependency graph.
-- [ ] Autonomous resource acquisition и автоматическое создание инструментов/верстака.
-- [ ] Автономные guard/patrol/survival поведения.
-- [ ] Персистентная память и восстановление действий после respawn/reconnect.
-- [ ] Дополнительные интерфейсы управления и координация нескольких ботов.
+- [ ] TaskManager and composite tasks.
+- [ ] ProductionPlanner and recipe dependency graph.
+- [ ] Autonomous resource gathering and automatic tool/crafting table creation.
+- [ ] Autonomous guard/patrol/survival behavior.
+- [ ] Persistent memory and action recovery after respawn/reconnect.
+- [ ] Additional control interfaces and multi-bot coordination.
 
-Автоматизация будет вызывать тот же Service API. Заготовки EventBus, BehaviorManager и plugins сохранены, но не являются обязательным слоем текущих команд. Подробнее: [будущие задачи](taskmanager.md).
-
-- [ ] Устранить ограничения отмены collectblock во время экипировки и ожидания подбора предмета без изменения пользовательского интерфейса.
+Automation will call the same Service API. Existing EventBus, BehaviorManager, and plugin stubs are preserved, but are not required layers for current commands. See [future automation](taskmanager.md).
