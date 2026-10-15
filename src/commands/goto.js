@@ -28,18 +28,18 @@ function router(bot, username, args) {
 export default {
     name: 'goto',
 
-    async execute({ bot, username, args }) {
+    async execute({ bot, username, args, reply = message => bot.chat(message) }) {
         const coordinates = router(bot, username, args)
         if (!coordinates) {
-            bot.chat('Usage: !goto x y z')
+            reply('Usage: !goto x y z')
             return
         }
         const [x, y, z] = coordinates.map(Number)
 
-        bot.chat(`Going to ${x} ${y} ${z}`)
+        reply(`Going to ${x} ${y} ${z}`)
 
         const result = await NavigationService.goto(bot, x, y, z)
-        if (result.status === 'arrived') bot.chat('Arrived.')
-        if (result.status === 'no_path') bot.chat('No path to that position.')
+        if (result.status === 'arrived') reply('Arrived.')
+        if (result.status === 'no_path') reply('No path to that position.')
     }
 }

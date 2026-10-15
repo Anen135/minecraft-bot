@@ -3,15 +3,15 @@ import InventoryService from '../services/InventoryService.js'
 export default {
     name: 'inventory',
 
-    async execute({ bot }) {
+    async execute({ bot, reply = message => bot.chat(message) }) {
         const { items } = InventoryService.list(bot)
 
         if (!items.length) {
-            bot.chat('Inventory is empty.')
+            reply('Inventory is empty.')
             return
         }
 
         const text = items.map(item => `${item.name} x${item.count}`).join(', ')
-        bot.chat(text.slice(0, 240))
+        reply(text.slice(0, 240))
     }
 }

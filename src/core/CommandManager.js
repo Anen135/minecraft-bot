@@ -1,18 +1,27 @@
 export default class CommandManager {
-    constructor(bot, config, registry) {
+    constructor(bot, config, registry, { perception } = {}) {
         this.bot = bot
         this.config = config
         this.registry = registry
+        this.perception = perception
+        this.chatListener = null
     }
 
     load() {
-        this.bot.on('chat', (username, message) => {
+        if (this.chatListener) return
+        this.chatListener = (username, message) => {
             if (username === this.bot.username) return
             return this.handle(username, message)
-        })
+        }
+        this.bot.on('chat', this.chatListener)
     }
 
-    async handle(username, message) {
+    unload() {
+        if (this.chatListener) this.bot.off('chat', this.chatListener)
+        this.chatListener = null
+    }
+
+    async handle(username, message, { reply } = {}) {
         const {prefix} = this.config.bot
         if (!message.startsWith(prefix)) return
         const args = message.slice(prefix.length) .trim() .split(/\s+/)
@@ -21,10 +30,14 @@ export default class CommandManager {
         const command = this.registry.get(commandName)
         if (!command) return
         try {
-            await command.execute({ bot: this.bot, username, args })
+            const context = { bot: this.bot, username, args }
+            if (this.perception) context.perception = this.perception
+            if (reply) context.reply = reply
+            await command.execute(context)
         } catch (error) {
             console.error(`[COMMAND ERROR] ${commandName}`, error)
-            this.bot.chat('Command execution error.')
+            if (reply) reply('Command execution error.')
+            else this.bot.chat('Command execution error.')
         }
     }
 }

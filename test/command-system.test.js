@@ -16,7 +16,7 @@ test('repository commands load and register with their existing and manual abili
     const commands = await new CommandLoader(new URL('../src/commands/', import.meta.url)).load()
     const registry = new CommandRegistry(commands)
     assert.deepEqual(registry.names().sort(),
-        ['chop', 'craft', 'equip', 'follow', 'goto', 'help', 'inventory', 'mine', 'stop'])
+        ['chop', 'craft', 'environment', 'equip', 'follow', 'goto', 'help', 'inventory', 'look', 'mine', 'nearby', 'scan', 'status', 'stop'])
     assert.equal(errors.mock.callCount(), 0)
     assert.equal(warnings.mock.callCount(), 0)
 })

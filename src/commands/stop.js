@@ -3,8 +3,8 @@ import NavigationService from '../services/NavigationService.js'
 export default {
     name: 'stop',
 
-    async execute({ bot }) {
+    async execute({ bot, reply = message => bot.chat(message) }) {
         await NavigationService.stop(bot)
-        bot.chat('Stopped.')
+        reply('Stopped.')
     }
 }
