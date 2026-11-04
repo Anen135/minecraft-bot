@@ -1,10 +1,8 @@
-import MiningService from '../services/MiningService.js'
-
 export default {
     name: 'chop',
 
-    async execute({ bot, reply = message => bot.chat(message) }) {
-        const result = await MiningService.chopTree(bot, {
+    async execute({ contract, reply }) {
+        const result = await contract.chopTree({
             onStart: count => reply(`Chopping tree: ${count} blocks.`)
         })
         if (result.status === 'interrupted') return

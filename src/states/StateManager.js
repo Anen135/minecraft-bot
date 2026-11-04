@@ -1,6 +1,6 @@
-export default class BehaviorManager {
-    constructor(bot) {
-        this.bot = bot
+export default class StateManager {
+    constructor(contract) {
+        this.contract = contract
         this.current = null
     }
 

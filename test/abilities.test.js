@@ -1,13 +1,23 @@
+import ServiceManager from '../src/services/ServiceManager.js'
+import { createCommandContract } from '../src/core/contracts/CommandContract.js'
+import { createServiceContract } from '../src/core/contracts/ServiceContract.js'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import MiningService from '../src/services/MiningService.js'
 import InventoryService from '../src/services/InventoryService.js'
 import CraftingService from '../src/services/CraftingService.js'
-import chop from '../src/commands/chopTree.js'
-import inventory from '../src/commands/inventory.js'
-import mine from '../src/commands/mine.js'
-import equip from '../src/commands/equip.js'
-import craft from '../src/commands/craft.js'
+import chop from '../src/commands/handlers/chopTree.js'
+import inventory from '../src/commands/handlers/inventory.js'
+import mine from '../src/commands/handlers/mine.js'
+import equip from '../src/commands/handlers/equip.js'
+import craft from '../src/commands/handlers/craft.js'
+
+function commandContext(bot) {
+    const services = new ServiceManager(bot, createServiceContract())
+    const contract = createCommandContract({ bot, services,
+        replyChat: (_bot, message) => bot.chat(message) })
+    return { contract, reply: message => bot.chat(message) }
+}
 
 const named = name => Object.assign(new Error(name), { name })
 
@@ -87,7 +97,7 @@ test('chop command only formats service progress and outcome', async t => {
         return { status: 'success', total: 4, completed: 2 }
     })
     const bot = chatBot()
-    await chop.execute({ bot })
+    await chop.execute({ ...commandContext(bot) })
     assert.deepEqual(bot.replies, ['Chopping tree: 4 blocks.', 'Chopped 2/4 blocks.'])
 })
 
@@ -95,13 +105,13 @@ test('inventory returns plain item data and preserves empty/truncated command ou
     const items = [{ type: 1, name: 'stone', count: 4 }]
     const bot = chatBot({ inventory: { items: () => items } })
     assert.deepEqual(InventoryService.list(bot), { status: 'success', items: [{ name: 'stone', count: 4 }] })
-    await inventory.execute({ bot })
+    await inventory.execute({ ...commandContext(bot) })
     assert.deepEqual(bot.replies, ['stone x4'])
     items.length = 0
-    await inventory.execute({ bot })
+    await inventory.execute({ ...commandContext(bot) })
     assert.equal(bot.replies.at(-1), 'Inventory is empty.')
     items.push({ name: 'x'.repeat(250), count: 1 })
-    await inventory.execute({ bot })
+    await inventory.execute({ ...commandContext(bot) })
     assert.equal(bot.replies.at(-1).length, 240)
 })
 
@@ -187,7 +197,7 @@ test('mine and craft commands reject invalid syntax before calling services', as
     for (const command of [mine, craft]) {
         for (const args of [[], ['stone', '0'], ['stone', '-1'], ['stone', '1.5'], ['stone', 'NaN'], ['stone', 'Infinity'], ['stone', ''], ['stone', '1', 'extra']]) {
             const bot = chatBot()
-            await command.execute({ bot, args })
+            await command.execute({ ...commandContext(bot), args })
             assert.match(bot.replies[0], /^Usage:/)
         }
     }
@@ -213,9 +223,9 @@ test('manual commands parse counts, default equipment slot and call independent 
         assert.equal(destination, 'hand')
         return { status: 'success' }
     })
-    await mine.execute({ bot, args: ['stone', '2'] })
-    await craft.execute({ bot, args: ['oak_planks'] })
-    await equip.execute({ bot, args: ['iron_pickaxe'] })
+    await mine.execute({ ...commandContext(bot), args: ['stone', '2'] })
+    await craft.execute({ ...commandContext(bot), args: ['oak_planks'] })
+    await equip.execute({ ...commandContext(bot), args: ['iron_pickaxe'] })
     assert.deepEqual(bot.replies, ['Mined 2/2 stone blocks.', 'Crafted 4 oak_planks.', 'Equipped iron_pickaxe in hand.'])
 })
 
@@ -224,10 +234,10 @@ test('commands show normalized errors and stay quiet on mining interruptions', a
     t.mock.method(InventoryService, 'equip', async () => ({ status: 'error', message: 'No sword in inventory.' }))
     t.mock.method(CraftingService, 'craft', async () => ({ status: 'error', message: 'Not enough resources.' }))
     const bot = chatBot()
-    await mine.execute({ bot, args: ['stone'] })
+    await mine.execute({ ...commandContext(bot), args: ['stone'] })
     assert.deepEqual(bot.replies, [])
-    await equip.execute({ bot, args: ['iron_sword'] })
-    await craft.execute({ bot, args: ['oak_planks'] })
+    await equip.execute({ ...commandContext(bot), args: ['iron_sword'] })
+    await craft.execute({ ...commandContext(bot), args: ['oak_planks'] })
     assert.deepEqual(bot.replies, ['Could not equip: No sword in inventory.', 'Could not craft: Not enough resources.'])
 })
 
@@ -235,7 +245,7 @@ test('equip command rejects unsupported destinations without invoking the servic
     t.mock.method(InventoryService, 'equip', async () => assert.fail('must not equip'))
     for (const args of [[], ['stone', 'belt'], ['stone', 'hand', 'extra']]) {
         const bot = chatBot()
-        await equip.execute({ bot, args })
+        await equip.execute({ ...commandContext(bot), args })
         assert.match(bot.replies[0], /^Usage: !equip/)
     }
 })

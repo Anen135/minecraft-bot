@@ -1,35 +1,33 @@
-# TODO — Core Abilities and Perception
+# TODO - Central Orchestration and Core Abilities
 
-Current stage: manual control of the bot's abilities. This plan replaces the earlier proposal for a broader architecture: a ServiceContainer, handlers, a new Command API, and a State Machine are not needed now.
+The bot remains manually controlled. `BotManager` owns subsystem managers and supplies individual frozen contracts. Managers know only their own components and contract; they do not import one another.
 
 ```text
-INPUT
-User → Commands → Services → Mineflayer
-
-OUTPUT
-User ← Console ← Observations ← Perception ← Mineflayer
+Inputs -> InputManager -> InputContract -> BotManager -> CommandManager
+Handlers -> CommandContract -> ServiceManager -> Services -> Mineflayer
+Detectors -> ObservationBus -> Reporter + PerceptionContract -> BotManager
 ```
 
-Commands handle parsing, validation, routing, and command replies. Services implement abilities and handle Minecraft errors without knowing chat command syntax. They receive the current `bot` on each call, including after reconnect. Perception detectors observe bot state and Mineflayer events, publish structured records through `ObservationBus`, and leave human-readable formatting to `ConsoleObservationReporter`.
+The orchestrator creates contract implementations, including the explicit service and perception forwards in `CommandContract`. See the [README architecture section](../README.md#current-architecture) for manager APIs, initialization order, and lifecycle details.
 
 ## Completed
 
-- [x] Preserved the `commands/`, `services/`, `core/`, `plugins/`, `behaviors/`, and `utils/` structure.
-- [x] `CommandLoader` loads and validates ESM commands; `CommandRegistry` rejects duplicates.
-- [x] `CommandManager` parses the prefix, passes `{ bot, username, args }`, and isolates command errors.
-- [x] `BotManager` creates the bot, loads pathfinder/collectblock, and reconnects with capped exponential backoff.
-- [x] `NavigationService.goto(bot, x, y, z)`, `follow(bot, username)`, and `stop(bot)`.
-- [x] Preserved `!goto`, `!goto <player>`, `!goto <x> <y> <z>`, and `!follow [player]`.
-- [x] `!stop` stops block collection, navigation, and control states.
-- [x] `InventoryService.list(bot)` and `equip(bot, itemName, destination)`; `!inventory` and `!equip`.
-- [x] `MiningService.chopTree(bot)` and `mine(bot, blockName, count)`; `!chop` and `!mine`.
-- [x] `CraftingService.craft(bot, itemName, count)`; `!craft` uses available resources without recursive crafting.
-- [x] Added `src/perception/` with a structured `ObservationBus`, status/entity/look/environment/event detectors, and a console reporter.
-- [x] Added local console input using the existing command registry and prefix; perception commands are `!status`, `!look`, `!nearby`, `!environment`, and `!scan`.
-- [x] Integrated perception and reporter into each bot connection lifecycle; listeners are stopped on disconnect and recreated after reconnect.
-- [x] Filtered passive entity notices by distance-zone changes and selected sound notices by name, range, and cooldown.
-- [x] Unit tests use mocks for Service APIs, routing, and errors; no Minecraft server is required.
-- [x] README describes both command input and perception output paths, plus their limits.
+- [x] Centralized creation and cleanup of inputs, commands, services, perception, states, and plugins in `BotManager`.
+- [x] Individual `InputContract`, `CommandContract`, `PerceptionContract`, `StateContract`, `PluginContract`, and `ServiceContract`, protected with `Object.freeze()`.
+- [x] Real consumers for every contract method; empty contracts for states/plugins/services that have no cross-subsystem requests yet.
+- [x] `InputManager` owns one process-wide console and one chat input per connection.
+- [x] `CommandManager` owns its loader, registry, and handlers, passes `{ username, args, reply, contract }`, and isolates command errors.
+- [x] Commands call the contract without receiving a bot, other managers, or importing services.
+- [x] `ServiceManager` reuses existing static services and owns `MemoryService`; disposed sessions cannot operate on a replacement bot.
+- [x] Preserved goto/follow forms and all 14 existing chat/console commands and their replies.
+- [x] `!stop` preserves pathfinder, collection, active digging, and movement cancellation.
+- [x] `PerceptionManager` owns its reporter, detectors, bus, and orchestrator subscription; detector code and observation format are unchanged.
+- [x] Preserved entity-zone and sound filtering and on-demand perception snapshots.
+- [x] Moved command files into their subsystem, `BehaviorManager` into the minimal `StateManager`, and the application plugin registry into `plugins/`.
+- [x] Reconnect replaces session managers/contracts, removes old listeners, and retains the same console.
+- [x] Initialization failures and cleanup errors release session resources and are diagnosed locally.
+- [x] Regression tests cover contracts, ownership, commands, observations, stale sessions, asynchronous errors, and Ctrl+C process shutdown.
+- [x] README documents manager APIs, individual contracts, initialization order, and implementation limits.
 
 ## Next Manual Abilities
 
@@ -41,7 +39,7 @@ Commands handle parsing, validation, routing, and command replies. Services impl
 - [ ] Cover all survival core abilities with commands.
 - [ ] Add waypoint/home commands using the existing `MemoryService`.
 - [ ] Add access control/whitelist; `OWNER_NAME` is not checked yet.
-- [ ] Add full process shutdown that cancels actions and saves memory.
+- [ ] Persist memory and restore selected state after shutdown; current shutdown already closes inputs and cancels existing actions.
 - [ ] Test behavior on a live Minecraft server; current perception tests use mocks and do not establish live-server behavior.
 - [ ] Resolve collectblock cancellation limits during tool equipping and item pickup without changing the user interface.
 
@@ -54,4 +52,4 @@ Commands handle parsing, validation, routing, and command replies. Services impl
 - [ ] Persistent memory and action recovery after respawn/reconnect.
 - [ ] Additional control interfaces and multi-bot coordination.
 
-Tasks, TaskManager, Planner, and AI are not implemented. Future automation can consume structured observations and call the same Service API. Existing EventBus, BehaviorManager, and plugin stubs are preserved, but are not required layers for current commands. See [future automation](taskmanager.md).
+Tasks, TaskManager, Planner, and AI are not implemented. Future subsystems should receive their own explicit contracts from `BotManager`; do not bypass manager boundaries with direct imports or universal string operations. See [future automation](taskmanager.md).

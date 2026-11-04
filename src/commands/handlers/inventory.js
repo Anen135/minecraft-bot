@@ -1,10 +1,8 @@
-import InventoryService from '../services/InventoryService.js'
-
 export default {
     name: 'inventory',
 
-    async execute({ bot, reply = message => bot.chat(message) }) {
-        const { items } = InventoryService.list(bot)
+    async execute({ contract, reply }) {
+        const { items } = contract.inventory()
 
         if (!items.length) {
             reply('Inventory is empty.')

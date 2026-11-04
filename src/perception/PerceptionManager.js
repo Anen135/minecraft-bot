@@ -4,11 +4,16 @@ import EntityDetector from './detectors/EntityDetector.js'
 import LookDetector from './detectors/LookDetector.js'
 import EnvironmentDetector from './detectors/EnvironmentDetector.js'
 import EventDetector from './detectors/EventDetector.js'
+import ConsoleObservationReporter from './ConsoleObservationReporter.js'
 
 export default class PerceptionManager {
-    constructor(bot, { bus = new ObservationBus() } = {}) {
+    constructor(bot, { bus = new ObservationBus(), contract = Object.freeze({}),
+        createReporter = bus => new ConsoleObservationReporter(bus) } = {}) {
         this.bot = bot
         this.bus = bus
+        this.contract = contract
+        this.reporter = createReporter(bus)
+        this.unsubscribe = null
         this.statusDetector = new StatusDetector(bot, bus)
         this.entityDetector = new EntityDetector(bot, bus)
         this.lookDetector = new LookDetector(bot, bus)
@@ -23,6 +28,16 @@ export default class PerceptionManager {
         if (this.running) return
         this.running = true
         try {
+            this.reporter.start()
+            this.unsubscribe = this.bus.on(observation => {
+                try {
+                    Promise.resolve(this.contract.publishObservation?.(observation)).catch(error => {
+                        console.error('[PERCEPTION] Observation delivery failed:', error)
+                    })
+                } catch (error) {
+                    console.error('[PERCEPTION] Observation delivery failed:', error)
+                }
+            })
             for (const detector of this.detectors) detector.start()
         } catch (error) {
             this.stop()
@@ -32,6 +47,9 @@ export default class PerceptionManager {
 
     stop() {
         for (const detector of this.detectors) detector.stop()
+        this.unsubscribe?.()
+        this.unsubscribe = null
+        this.reporter.stop()
         this.running = false
     }
 

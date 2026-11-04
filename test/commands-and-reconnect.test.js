@@ -1,10 +1,20 @@
+import ServiceManager from '../src/services/ServiceManager.js'
+import { createCommandContract } from '../src/core/contracts/CommandContract.js'
+import { createServiceContract } from '../src/core/contracts/ServiceContract.js'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import BotManager from '../src/core/BotManager.js'
-import chopTree from '../src/commands/chopTree.js'
-import goto from '../src/commands/goto.js'
-import stop from '../src/commands/stop.js'
+import chopTree from '../src/commands/handlers/chopTree.js'
+import goto from '../src/commands/handlers/goto.js'
+import stop from '../src/commands/handlers/stop.js'
+
+function commandContext(bot) {
+    const services = new ServiceManager(bot, createServiceContract())
+    const contract = createCommandContract({ bot, services,
+        replyChat: (_bot, message) => bot.chat(message) })
+    return { contract, reply: message => bot.chat(message) }
+}
 
 const named = name => Object.assign(new Error(name), { name })
 
@@ -23,14 +33,14 @@ test('chopTree reports success only when the whole tree is gone', async () => {
     })
 
     const done = make([])
-    await chopTree.execute({ bot: done })
+    await chopTree.execute({ ...commandContext(done) })
     assert.deepEqual(done.replies, ['Chopping tree: 2 blocks.', 'Tree chopped successfully.'])
     assert.equal(matching({ name: 'jungle_log' }), true)
     assert.equal(matching({ name: 'stripped_jungle_log' }), false)
 
     // collect() resolves normally after !stop, but logs are still standing
     const stopped = make(['b'])
-    await chopTree.execute({ bot: stopped })
+    await chopTree.execute({ ...commandContext(stopped) })
     assert.equal(stopped.replies.at(-1), 'Chopped 1/2 blocks.')
 })
 
@@ -42,15 +52,15 @@ test('chopTree stays quiet when interrupted and reports real failures', async t 
     })
 
     const interrupted = make(named('GoalChanged'))
-    await chopTree.execute({ bot: interrupted })
+    await chopTree.execute({ ...commandContext(interrupted) })
     assert.deepEqual(interrupted.replies, ['Chopping tree: 0 blocks.'])
 
     const failed = make(named('NoPath'))
-    await chopTree.execute({ bot: failed })
+    await chopTree.execute({ ...commandContext(failed) })
     assert.match(failed.replies.at(-1), /^Could not chop tree: NoPath/)
 
     const none = fakeBot({ findBlock: () => null })
-    await chopTree.execute({ bot: none })
+    await chopTree.execute({ ...commandContext(none) })
     assert.deepEqual(none.replies, ['No log found nearby.'])
 })
 
@@ -59,26 +69,26 @@ test('goto validates arguments and handles pathfinder outcomes', async () => {
 
     for (const args of [[], ['1', '2'], ['1', '2', 'x'], ['1', '', '3']]) {
         const bot = make(async () => assert.fail('must not navigate'))
-        await goto.execute({ bot, args })
+        await goto.execute({ ...commandContext(bot), args })
         assert.deepEqual(bot.replies, ['Usage: !goto x y z'], JSON.stringify(args))
     }
 
     const ok = make(async () => {})
-    await goto.execute({ bot: ok, args: ['1', '2', '3'] })
+    await goto.execute({ ...commandContext(ok), args: ['1', '2', '3'] })
     assert.deepEqual(ok.replies, ['Going to 1 2 3', 'Arrived.'])
 
     for (const name of ['PathStopped', 'GoalChanged']) {
         const bot = make(async () => { throw named(name) })
-        await goto.execute({ bot, args: ['1', '2', '3'] })
+        await goto.execute({ ...commandContext(bot), args: ['1', '2', '3'] })
         assert.deepEqual(bot.replies, ['Going to 1 2 3'], name)
     }
 
     const noPath = make(async () => { throw named('NoPath') })
-    await goto.execute({ bot: noPath, args: ['1', '2', '3'] })
+    await goto.execute({ ...commandContext(noPath), args: ['1', '2', '3'] })
     assert.equal(noPath.replies.at(-1), 'No path to that position.')
 
     const broken = make(async () => { throw new Error('boom') })
-    await assert.rejects(goto.execute({ bot: broken, args: ['1', '2', '3'] }), /boom/)
+    await assert.rejects(goto.execute({ ...commandContext(broken), args: ['1', '2', '3'] }), /boom/)
 })
 
 test('stop cancels collecting, pathfinding and movement', async () => {
@@ -88,13 +98,13 @@ test('stop cancels collecting, pathfinding and movement', async () => {
         pathfinder: { stop: () => calls.push('pathfinder') },
         clearControlStates: () => calls.push('controls')
     })
-    await stop.execute({ bot })
+    await stop.execute({ ...commandContext(bot) })
     assert.deepEqual(calls, ['targets', 'pathfinder', 'controls'])
     assert.deepEqual(bot.replies, ['Stopped.'])
 
     // works when the collectBlock plugin is not loaded
     const plain = fakeBot({ pathfinder: { stop() {} }, clearControlStates() {} })
-    await stop.execute({ bot: plain })
+    await stop.execute({ ...commandContext(plain) })
     assert.deepEqual(plain.replies, ['Stopped.'])
 })
 

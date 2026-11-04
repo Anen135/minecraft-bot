@@ -1,15 +1,13 @@
-import MiningService from '../services/MiningService.js'
-
 export default {
     name: 'mine',
 
-    async execute({ bot, args = [], reply = message => bot.chat(message) }) {
+    async execute({ contract, args = [], reply }) {
         const count = args.length === 2 ? Number(args[1]) : 1
         if (args.length < 1 || args.length > 2 || !args[0].trim() || (args.length === 2 && !args[1].trim()) || !Number.isSafeInteger(count) || count < 1) {
             reply('Usage: !mine <block> [count]')
             return
         }
-        const result = await MiningService.mine(bot, args[0], count)
+        const result = await contract.mine(args[0], count)
         if (result.status === 'interrupted') return
         reply(result.status === 'success' ? `Mined ${result.completed}/${result.requested} ${args[0]} blocks.` : `Could not mine: ${result.message}`)
     }

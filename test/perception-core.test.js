@@ -5,15 +5,18 @@ import { test } from 'node:test'
 import ObservationBus from '../src/perception/ObservationBus.js'
 import PerceptionManager from '../src/perception/PerceptionManager.js'
 import ConsoleObservationReporter, { formatObservation } from '../src/perception/ConsoleObservationReporter.js'
-import CommandManager from '../src/core/CommandManager.js'
-import CommandRegistry from '../src/core/CommandRegistry.js'
+import CommandManager from '../src/commands/CommandManager.js'
+import CommandRegistry from '../src/commands/CommandRegistry.js'
 import ConsoleInput from '../src/inputs/ConsoleInput.js'
-import status from '../src/commands/status.js'
-import look from '../src/commands/look.js'
-import nearby from '../src/commands/nearby.js'
-import scan from '../src/commands/scan.js'
-import environment from '../src/commands/environment.js'
-import inventory from '../src/commands/inventory.js'
+import status from '../src/commands/handlers/status.js'
+import look from '../src/commands/handlers/look.js'
+import nearby from '../src/commands/handlers/nearby.js'
+import scan from '../src/commands/handlers/scan.js'
+import environment from '../src/commands/handlers/environment.js'
+import inventory from '../src/commands/handlers/inventory.js'
+import ServiceManager from '../src/services/ServiceManager.js'
+import { createCommandContract } from '../src/core/contracts/CommandContract.js'
+import { createServiceContract } from '../src/core/contracts/ServiceContract.js'
 
 function botFixture() {
     return Object.assign(new EventEmitter(), {
@@ -70,7 +73,9 @@ test('reporter formats active snapshots and passive structured events with prior
 })
 
 test('PerceptionManager scan emits one compact structured summary without action calls', () => {
-    const bot = botFixture(), perception = new PerceptionManager(bot), observed = []
+    const bot = botFixture(), perception = new PerceptionManager(bot, {
+        createReporter: bus => new ConsoleObservationReporter(bus, { write() {} })
+    }), observed = []
     perception.bus.on(observation => observed.push(observation))
     assert.throws(() => perception.scan(), /not ready/)
     perception.start(); perception.start()
@@ -93,11 +98,15 @@ test('PerceptionManager scan emits one compact structured summary without action
 })
 
 test('commands route through perception and console replies without copying detection logic', async t => {
-    const bot = botFixture(), perception = new PerceptionManager(bot), output = []
-    const reporter = new ConsoleObservationReporter(perception.bus, { write: text => output.push(text) })
-    perception.start(); reporter.start()
+    const bot = botFixture(), output = []
+    const perception = new PerceptionManager(bot, {
+        createReporter: bus => new ConsoleObservationReporter(bus, { write: text => output.push(text) })
+    })
+    perception.start()
     const registry = new CommandRegistry([status, look, nearby, scan, environment, inventory])
-    const manager = new CommandManager(bot, { bot: { prefix: '!' } }, registry, { perception })
+    const contract = createCommandContract({ bot, perception,
+        services: new ServiceManager(bot, createServiceContract()) })
+    const manager = new CommandManager({ bot: { prefix: '!' } }, contract, { registry })
     assert.equal(bot.listenerCount('chat'), 0)
     const source = new PassThrough(), destination = new PassThrough()
     const input = new ConsoleInput({ input: source, output: destination })
@@ -108,7 +117,7 @@ test('commands route through perception and console replies without copying dete
     assert.equal(output.length, 6)
     assert.match(output.at(-1), /stone x4/)
     assert.equal(bot.listenerCount('chat'), 0)
-    reporter.stop(); perception.stop()
+    perception.stop()
 })
 
 test('console composition obtains the latest connected manager and clears readline listeners', async () => {

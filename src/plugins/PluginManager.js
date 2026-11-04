@@ -1,6 +1,6 @@
 export default class PluginManager {
-    constructor(bot) {
-        this.bot = bot
+    constructor(contract) {
+        this.contract = contract
         this.plugins = new Map()
     }
 
@@ -11,5 +11,9 @@ export default class PluginManager {
 
     get(name) {
         return this.plugins.get(name)
+    }
+
+    dispose() {
+        this.plugins.clear()
     }
 }

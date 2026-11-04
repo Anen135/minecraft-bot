@@ -1,12 +1,22 @@
+import ServiceManager from '../src/services/ServiceManager.js'
+import { createCommandContract } from '../src/core/contracts/CommandContract.js'
+import { createServiceContract } from '../src/core/contracts/ServiceContract.js'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import { CollectBlock } from 'mineflayer-collectblock/lib/CollectBlock.js'
 import pathfinder from 'mineflayer-pathfinder'
 import NavigationService from '../src/services/NavigationService.js'
-import goto from '../src/commands/goto.js'
-import follow from '../src/commands/follow.js'
-import stop from '../src/commands/stop.js'
+import goto from '../src/commands/handlers/goto.js'
+import follow from '../src/commands/handlers/follow.js'
+import stop from '../src/commands/handlers/stop.js'
+
+function commandContext(bot) {
+    const services = new ServiceManager(bot, createServiceContract())
+    const contract = createCommandContract({ bot, services,
+        replyChat: (_bot, message) => bot.chat(message) })
+    return { contract, reply: message => bot.chat(message) }
+}
 
 const named = name => Object.assign(new Error(name), { name })
 
@@ -26,7 +36,7 @@ test('goto command preserves caller, player and coordinate routing through the s
     }
 
     for (const args of [[], ['Steve'], ['100', '64', '-200']]) {
-        await goto.execute({ bot, username: 'Alice', args })
+        await goto.execute({ ...commandContext(bot), username: 'Alice', args })
     }
 
     assert.deepEqual(calls, [[bot, 1, 64, 3], [bot, 10, 65, -20], [bot, 100, 64, -200]])
@@ -42,7 +52,7 @@ test('goto command rejects invalid input and unavailable players without invokin
         ['1', '', '3'], ['1', '   ', '3'], ['1', 'Infinity', '3'],
         ['1', 'NaN', '3'], ['1', '2', '3', '4']]
     for (const args of invalid) {
-        await goto.execute({ bot, username: 'Alice', args })
+        await goto.execute({ ...commandContext(bot), username: 'Alice', args })
     }
     assert.deepEqual(replies, invalid.map(() => 'Usage: !goto x y z'))
 })
@@ -83,9 +93,9 @@ test('follow preserves caller/player forms and the dynamic GoalFollow distance',
         pathfinder: { setGoal: (...args) => calls.push(args) },
         chat: message => replies.push(message)
     }
-    await follow.execute({ bot, username: 'Alice', args: [] })
-    await follow.execute({ bot, username: 'Alice', args: ['Steve'] })
-    await follow.execute({ bot, username: 'Alice', args: ['Missing'] })
+    await follow.execute({ ...commandContext(bot), username: 'Alice', args: [] })
+    await follow.execute({ ...commandContext(bot), username: 'Alice', args: ['Steve'] })
+    await follow.execute({ ...commandContext(bot), username: 'Alice', args: ['Missing'] })
     assert.equal(calls.length, 2)
     for (const [index, [goal, dynamic]] of calls.entries()) {
         assert.ok(goal instanceof pathfinder.goals.GoalFollow)
@@ -158,7 +168,7 @@ test('stop command replies while the installed collectBlock plugin waits for ent
     assert.equal(bot.listenerCount('entityGone'), 1)
 
     try {
-        await stop.execute({ bot })
+        await stop.execute({ ...commandContext(bot) })
         assert.deepEqual(bot.replies, ['Stopped.'])
         assert.equal(bot.collectBlock.targets.empty, true)
     } finally {

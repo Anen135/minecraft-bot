@@ -3,10 +3,7 @@ import { EventEmitter } from 'node:events'
 import { test } from 'node:test'
 import minecraftData from 'minecraft-data'
 import BotManager from '../src/core/BotManager.js'
-import CommandManager from '../src/core/CommandManager.js'
-import CommandRegistry from '../src/core/CommandRegistry.js'
 import ConsoleObservationReporter from '../src/perception/ConsoleObservationReporter.js'
-import ChatInput from '../src/inputs/ChatInput.js'
 
 test('BotManager owns perception per connection, reuses it on respawn and cleans old listeners', async t => {
     t.mock.method(console, 'log', () => {})
@@ -26,17 +23,14 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
         createReporter: bus => new ConsoleObservationReporter(bus, { write: text => output.push(text) }),
         onReady(bot, perception) {
             ready.push(perception)
-            manager.commandManager = new CommandManager(bot, { bot: { prefix: '!' } }, new CommandRegistry(), { perception })
-            const commands = manager.commandManager
-            const chatInput = new ChatInput(bot)
-            chatInput.start((username, message) => commands.handle(username, message))
-            return () => { cleaned.push(bot); chatInput.stop() }
+            return () => { cleaned.push(bot) }
         }
     })
     t.after(() => manager.stop())
     manager.start(); manager.start()
     assert.equal(bots.length, 1, 'start is idempotent while connected')
     bots[0].emit('spawn')
+    await manager.sessionReady
     assert.equal(ready.length, 1)
     const first = manager.perception
     assert.equal(bots[0].listenerCount('health'), 2)
@@ -47,7 +41,7 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
     assert.match(output.at(-1), /20 → 16/)
     bots[0].emit('end', 'closed')
     assert.equal(first.running, false)
-    assert.equal(manager.commandManager, null)
+    assert.equal(manager.commands, null)
     assert.deepEqual(cleaned, [bots[0]])
     assert.equal(bots[0].listenerCount('health'), 1, 'preserve listeners owned by other layers')
     for (const event of ['entityMoved', 'soundEffectHeard', 'breath', 'chat', 'end', 'kicked', 'respawn', 'spawn']) {
@@ -60,6 +54,7 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
     while (bots.length < 2 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5))
     assert.equal(bots.length, 2)
     bots[1].emit('spawn')
+    await manager.sessionReady
     assert.equal(ready.length, 2)
     assert.notEqual(manager.perception, first)
     manager.stop()

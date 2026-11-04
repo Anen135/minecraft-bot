@@ -1,15 +1,13 @@
-import NavigationService from '../services/NavigationService.js'
-
-function _a(bot, username, args) {
+function _a(contract, username, args) {
     if (args.length != 0) return null
-    const coords = bot.players?.[username]?.entity?.position
+    const coords = contract.playerPosition(username)
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
 
-function _b(bot, args) {
+function _b(contract, args) {
     if (args.length != 1) return null
-    const coords = bot.players?.[args[0]]?.entity?.position
+    const coords = contract.playerPosition(args[0])
     if (!coords) return null
     return [ coords.x, coords.y, coords.z ]
 }
@@ -21,15 +19,15 @@ function _c(args) {
     return [ x, y, z ]
 }
 
-function router(bot, username, args) {
-    return _a(bot, username, args) || _b(bot, args) || _c(args)
+function router(contract, username, args) {
+    return _a(contract, username, args) || _b(contract, args) || _c(args)
 }
 
 export default {
     name: 'goto',
 
-    async execute({ bot, username, args, reply = message => bot.chat(message) }) {
-        const coordinates = router(bot, username, args)
+    async execute({ contract, username, args, reply }) {
+        const coordinates = router(contract, username, args)
         if (!coordinates) {
             reply('Usage: !goto x y z')
             return
@@ -38,7 +36,7 @@ export default {
 
         reply(`Going to ${x} ${y} ${z}`)
 
-        const result = await NavigationService.goto(bot, x, y, z)
+        const result = await contract.goto(x, y, z)
         if (result.status === 'arrived') reply('Arrived.')
         if (result.status === 'no_path') reply('No path to that position.')
     }

@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict'
-import { EventEmitter } from 'node:events'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { pathToFileURL } from 'node:url'
-import CommandLoader from '../src/core/CommandLoader.js'
-import CommandManager from '../src/core/CommandManager.js'
-import CommandRegistry from '../src/core/CommandRegistry.js'
+import CommandLoader from '../src/commands/CommandLoader.js'
+import CommandManager from '../src/commands/CommandManager.js'
+import CommandRegistry from '../src/commands/CommandRegistry.js'
 
 test('repository commands load and register with their existing and manual ability names', async t => {
     t.mock.method(console, 'log', () => {})
     const errors = t.mock.method(console, 'error', () => {})
     const warnings = t.mock.method(console, 'warn', () => {})
-    const commands = await new CommandLoader(new URL('../src/commands/', import.meta.url)).load()
+    const commands = await new CommandLoader(new URL('../src/commands/handlers/', import.meta.url)).load()
     const registry = new CommandRegistry(commands)
     assert.deepEqual(registry.names().sort(),
         ['chop', 'craft', 'environment', 'equip', 'follow', 'goto', 'help', 'inventory', 'look', 'mine', 'nearby', 'scan', 'status', 'stop'])
@@ -95,7 +94,7 @@ test('registry rejects invalid commands from any source', () => {
 })
 
 test('manager dispatches parsed commands without a Minecraft chat subscription', async () => {
-    const bot = { username: 'TestBot' }
+    const contract = Object.freeze({ reply() {} })
     const executions = []
     const lookups = []
     const command = {
@@ -110,7 +109,7 @@ test('manager dispatches parsed commands without a Minecraft chat subscription',
             return name === 'ping' ? command : undefined
         }
     }
-    const manager = new CommandManager(bot, { bot: { prefix: '!!' } }, registry)
+    const manager = new CommandManager({ bot: { prefix: '!!' } }, contract, { registry })
     await manager.handle('Alice', 'ping ignored')
     await manager.handle('Alice', ' !!ping ignored')
     await manager.handle('Alice', '!!   ')
@@ -118,25 +117,23 @@ test('manager dispatches parsed commands without a Minecraft chat subscription',
     await manager.handle('Alice', '!!  PiNG   first\tsecond  ')
 
     assert.deepEqual(lookups, ['missing', 'ping'])
-    assert.deepEqual(executions, [{ bot, username: 'Alice', args: ['first', 'second'] }])
+    assert.deepEqual(executions, [{ contract, reply: contract.reply, username: 'Alice', args: ['first', 'second'] }])
 
     await manager.handle('Bob', '!!ping')
-    assert.deepEqual(executions[1], { bot, username: 'Bob', args: [] })
+    assert.deepEqual(executions[1], { contract, reply: contract.reply, username: 'Bob', args: [] })
 })
 
 test('manager isolates synchronous and asynchronous command errors', async t => {
     const errors = t.mock.method(console, 'error', () => {})
     const replies = []
-    const bot = new EventEmitter()
-    bot.username = 'TestBot'
-    bot.chat = message => replies.push(message)
+    const contract = Object.freeze({ reply: message => replies.push(message) })
     let completed = 0
     const registry = new CommandRegistry([
         { name: 'sync', execute() { throw new Error('Sync failure') } },
         { name: 'async', async execute() { throw new Error('Async failure') } },
         { name: 'ok', async execute() { completed++ } }
     ])
-    const manager = new CommandManager(bot, { bot: { prefix: '!' } }, registry)
+    const manager = new CommandManager({ bot: { prefix: '!' } }, contract, { registry })
     await manager.handle('Alice', '!sync')
     await manager.handle('Alice', '!async')
     await manager.handle('Alice', '!ok')

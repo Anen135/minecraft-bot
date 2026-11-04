@@ -7,8 +7,6 @@ import minecraftData from 'minecraft-data'
 import ChatInput from '../src/inputs/ChatInput.js'
 import ConsoleInput from '../src/inputs/ConsoleInput.js'
 import BotManager from '../src/core/BotManager.js'
-import CommandManager from '../src/core/CommandManager.js'
-import CommandRegistry from '../src/core/CommandRegistry.js'
 
 test('ChatInput forwards raw messages, ignores itself, starts once and removes only its listener', () => {
     const bot = Object.assign(new EventEmitter(), { username: 'TestBot' })
@@ -92,14 +90,17 @@ test('chat belongs to each connection while the same console routes to the lates
     t.mock.method(console, 'log', () => {})
     t.mock.timers.enable({ apis: ['setTimeout'] })
     const bots = [], cleaned = [], executions = [], replies = []
-    const registry = new CommandRegistry([{ name: 'ping', execute({ bot, username, args, reply, perception }) {
-        executions.push({ bot, username, args, perception })
-        if (reply) reply('console reply')
-        else bot.chat('chat reply')
-    } }])
+    const command = { name: 'ping', execute(context) {
+        executions.push(context)
+        context.reply(context.username === 'Owner' ? 'console reply' : 'chat reply')
+    } }
+    const source = new PassThrough(), destination = new PassThrough()
     const config = { minecraft: {}, bot: { prefix: '!' } }
     const manager = new BotManager(config, {
         reconnect: { min: 5, max: 10 },
+        commandOptions: { loader: { async load() { return [command] } } },
+        inputOptions: { username: 'Owner', consoleOptions: { input: source, output: destination },
+            write: message => replies.push(message) },
         createBot() {
             const bot = Object.assign(new EventEmitter(), {
                 username: 'TestBot', version: '1.20.4', registry: minecraftData('1.20.4'),
@@ -111,47 +112,39 @@ test('chat belongs to each connection while the same console routes to the lates
         },
         createPerception: () => ({ bus: {}, start() {}, stop() {} }),
         createReporter: () => ({ start() {}, stop() {} }),
-        onReady(bot, perception) {
-            const commands = new CommandManager(bot, config, registry, { perception })
-            manager.commandManager = commands
-            const chat = new ChatInput(bot)
-            chat.start((username, message) => commands.handle(username, message))
-            return () => { cleaned.push(bot); chat.stop() }
-        }
+        onReady(bot) { return () => { cleaned.push(bot) } }
     })
-    const source = new PassThrough(), destination = new PassThrough()
-    const terminal = new ConsoleInput({ input: source, output: destination })
-    t.after(() => { terminal.stop(); manager.stop(); source.destroy(); destination.destroy() })
-    terminal.start(line => {
-        const commands = manager.commandManager
-        if (!commands) { replies.push('not ready'); return }
-        return commands.handle('Owner', line, { reply: message => replies.push(message) })
-    })
+    t.after(async () => { await manager.stop(); source.destroy(); destination.destroy() })
+    manager.start()
+    const terminal = manager.inputs.console
     const readline = terminal.readline
     source.write('!ping\n')
-    manager.start()
     bots[0].emit('spawn')
+    await manager.sessionReady
+    const firstCommands = manager.commands
     source.write('!ping first\n')
     bots[0].emit('chat', 'Alice', '!ping first')
     assert.equal(executions.length, 2)
-    assert.ok(executions.every(context => context.bot === bots[0] && context.perception === manager.perception))
+    assert.ok(executions.every(context => context.contract === firstCommands.contract && !('bot' in context) && !('perception' in context)))
 
     bots[0].emit('end', 'disconnect')
     assert.equal(bots[0].listenerCount('chat'), 0)
-    assert.equal(manager.commandManager, null)
+    assert.equal(manager.commands, null)
     assert.equal(terminal.readline, readline)
     bots[0].emit('chat', 'Alice', '!ping stale')
     source.write('!ping between\n')
     assert.equal(executions.length, 2)
+    await manager.disposal
     t.mock.timers.tick(5)
     bots[1].emit('spawn')
+    await manager.sessionReady
     assert.equal(bots[1].listenerCount('chat'), 1)
     source.write('!ping second\n')
     bots[1].emit('chat', 'Bob', '!ping second')
     assert.equal(executions.length, 4)
-    assert.ok(executions.slice(2).every(context => context.bot === bots[1] && context.perception === manager.perception))
+    assert.ok(executions.slice(2).every(context => context.contract === manager.commands.contract))
     assert.deepEqual(executions.map(context => context.username), ['Owner', 'Alice', 'Owner', 'Bob'])
-    assert.deepEqual(replies, ['not ready', 'console reply', 'chat reply', 'not ready', 'console reply', 'chat reply'])
+    assert.deepEqual(replies, ['[CONSOLE] Bot is not ready.', 'console reply', 'chat reply', '[CONSOLE] Bot is not ready.', 'console reply', 'chat reply'])
     manager.stop(); manager.stop()
     assert.deepEqual(cleaned, bots)
     assert.equal(bots[1].listenerCount('chat'), 0)
@@ -160,7 +153,7 @@ test('chat belongs to each connection while the same console routes to the lates
     await new Promise(resolve => setImmediate(resolve))
 })
 
-test('a failing session cleanup is reported once and does not prevent shutdown', t => {
+test('a failing session cleanup is reported once and does not prevent shutdown', async t => {
     t.mock.method(console, 'log', () => {})
     const errors = t.mock.method(console, 'error', () => {})
     let cleanups = 0, quits = 0, perceptionStops = 0, reporterStops = 0
@@ -170,11 +163,11 @@ test('a failing session cleanup is reported once and does not prevent shutdown',
     })
     const manager = new BotManager({ minecraft: {} }, {
         createBot: () => bot,
-        createPerception: () => ({ bus: {}, start() {}, stop() { perceptionStops++ } }),
-        createReporter: () => ({ start() {}, stop() { reporterStops++ } }),
+        createPerception: () => ({ bus: {}, start() {}, stop() { perceptionStops++; reporterStops++ } }),
         onReady: () => () => { cleanups++; throw new Error('cleanup failed') }
     })
     manager.start(); bot.emit('spawn')
+    await manager.sessionReady
     manager.stop(); manager.stop(); bot.emit('end', 'late end')
     assert.deepEqual([cleanups, quits, perceptionStops, reporterStops], [1, 1, 1, 1])
     assert.equal(errors.mock.callCount(), 1)
@@ -182,16 +175,23 @@ test('a failing session cleanup is reported once and does not prevent shutdown',
 })
 
 test('terminal Ctrl+C shuts down and lets the process exit', { timeout: 5000 }, async t => {
-    const inputUrl = new URL('../src/inputs/ConsoleInput.js', import.meta.url).href
+    const managerUrl = new URL('../src/core/BotManager.js', import.meta.url).href
     const child = spawn(process.execPath, ['--input-type=module', '-e', `
-        import ConsoleInput from ${JSON.stringify(inputUrl)}
+        import BotManager from ${JSON.stringify(managerUrl)}
+        import { EventEmitter } from 'node:events'
         process.stdin.isTTY = true
         process.stdin.setRawMode = () => {}
         process.stdout.isTTY = true
-        const input = new ConsoleInput({ onInterrupt: shutdown })
-        function shutdown() { input.stop(); console.log('STOPPED') }
-        process.once('SIGINT', shutdown)
-        input.start(() => {})
+        const bot = Object.assign(new EventEmitter(), { loadPlugin() {}, quit() {} })
+        const manager = new BotManager({ minecraft: {}, bot: { prefix: '!' } }, {
+            createBot: () => bot, reconnect: { min: 60000, max: 60000 }
+        })
+        const stop = manager.stop.bind(manager)
+        manager.stop = async () => { await stop(); console.log('STOPPED') }
+        process.once('SIGINT', () => { void manager.stop() })
+        manager.start()
+        bot.emit('end', 'simulate reconnect')
+        await manager.disposal
         console.log('READY')
     `], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     t.after(() => child.kill())
