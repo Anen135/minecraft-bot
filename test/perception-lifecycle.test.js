@@ -6,10 +6,11 @@ import BotManager from '../src/core/BotManager.js'
 import CommandManager from '../src/core/CommandManager.js'
 import CommandRegistry from '../src/core/CommandRegistry.js'
 import ConsoleObservationReporter from '../src/perception/ConsoleObservationReporter.js'
+import ChatInput from '../src/inputs/ChatInput.js'
 
 test('BotManager owns perception per connection, reuses it on respawn and cleans old listeners', async t => {
     t.mock.method(console, 'log', () => {})
-    const bots = [], ready = [], output = [], foreignHealth = () => {}
+    const bots = [], ready = [], cleaned = [], output = [], foreignHealth = () => {}
     const createBot = () => {
         const bot = Object.assign(new EventEmitter(), {
             version: '1.20.4', registry: minecraftData('1.20.4'), username: 'TestBot',
@@ -26,7 +27,10 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
         onReady(bot, perception) {
             ready.push(perception)
             manager.commandManager = new CommandManager(bot, { bot: { prefix: '!' } }, new CommandRegistry(), { perception })
-            manager.commandManager.load()
+            const commands = manager.commandManager
+            const chatInput = new ChatInput(bot)
+            chatInput.start((username, message) => commands.handle(username, message))
+            return () => { cleaned.push(bot); chatInput.stop() }
         }
     })
     t.after(() => manager.stop())
@@ -44,6 +48,7 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
     bots[0].emit('end', 'closed')
     assert.equal(first.running, false)
     assert.equal(manager.commandManager, null)
+    assert.deepEqual(cleaned, [bots[0]])
     assert.equal(bots[0].listenerCount('health'), 1, 'preserve listeners owned by other layers')
     for (const event of ['entityMoved', 'soundEffectHeard', 'breath', 'chat', 'end', 'kicked', 'respawn', 'spawn']) {
         assert.equal(bots[0].listenerCount(event), 0, event)
@@ -58,6 +63,9 @@ test('BotManager owns perception per connection, reuses it on respawn and cleans
     assert.equal(ready.length, 2)
     assert.notEqual(manager.perception, first)
     manager.stop()
+    manager.stop()
+    bots[1].emit('end', 'shutdown')
+    assert.deepEqual(cleaned, bots, 'each connection cleanup runs exactly once')
     assert.equal(bots[1].quitCalled, true)
     assert.equal(manager.perception, null)
     assert.equal(bots[1].listenerCount('health'), 1)

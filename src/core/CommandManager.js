@@ -1,24 +1,10 @@
+// CommandManager.js - Version 1.0.0
 export default class CommandManager {
     constructor(bot, config, registry, { perception } = {}) {
         this.bot = bot
         this.config = config
         this.registry = registry
         this.perception = perception
-        this.chatListener = null
-    }
-
-    load() {
-        if (this.chatListener) return
-        this.chatListener = (username, message) => {
-            if (username === this.bot.username) return
-            return this.handle(username, message)
-        }
-        this.bot.on('chat', this.chatListener)
-    }
-
-    unload() {
-        if (this.chatListener) this.bot.off('chat', this.chatListener)
-        this.chatListener = null
     }
 
     async handle(username, message, { reply } = {}) {

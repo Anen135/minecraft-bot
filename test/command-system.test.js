@@ -94,9 +94,8 @@ test('registry rejects invalid commands from any source', () => {
     assert.equal(registry.size, 0)
 })
 
-test('manager subscribes to chat, filters messages and executes parsed commands', async () => {
-    const bot = new EventEmitter()
-    bot.username = 'TestBot'
+test('manager dispatches parsed commands without a Minecraft chat subscription', async () => {
+    const bot = { username: 'TestBot' }
     const executions = []
     const lookups = []
     const command = {
@@ -112,15 +111,11 @@ test('manager subscribes to chat, filters messages and executes parsed commands'
         }
     }
     const manager = new CommandManager(bot, { bot: { prefix: '!!' } }, registry)
-    manager.load()
-
-    bot.emit('chat', 'TestBot', '!!ping ignored')
-    bot.emit('chat', 'Alice', 'ping ignored')
-    bot.emit('chat', 'Alice', ' !!ping ignored')
-    bot.emit('chat', 'Alice', '!!   ')
-    bot.emit('chat', 'Alice', '!!missing')
-    bot.emit('chat', 'Alice', '!!  PiNG   first\tsecond  ')
-    await new Promise(resolve => setImmediate(resolve))
+    await manager.handle('Alice', 'ping ignored')
+    await manager.handle('Alice', ' !!ping ignored')
+    await manager.handle('Alice', '!!   ')
+    await manager.handle('Alice', '!!missing')
+    await manager.handle('Alice', '!!  PiNG   first\tsecond  ')
 
     assert.deepEqual(lookups, ['missing', 'ping'])
     assert.deepEqual(executions, [{ bot, username: 'Alice', args: ['first', 'second'] }])
@@ -142,13 +137,9 @@ test('manager isolates synchronous and asynchronous command errors', async t => 
         { name: 'ok', async execute() { completed++ } }
     ])
     const manager = new CommandManager(bot, { bot: { prefix: '!' } }, registry)
-    manager.load()
-
-    bot.emit('chat', 'Alice', '!sync')
-    bot.emit('chat', 'Alice', '!async')
-    await new Promise(resolve => setImmediate(resolve))
-    bot.emit('chat', 'Alice', '!ok')
-    await new Promise(resolve => setImmediate(resolve))
+    await manager.handle('Alice', '!sync')
+    await manager.handle('Alice', '!async')
+    await manager.handle('Alice', '!ok')
 
     assert.equal(errors.mock.callCount(), 2)
     assert.deepEqual(replies, ['Command execution error.', 'Command execution error.'])

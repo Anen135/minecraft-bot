@@ -1,0 +1,33 @@
+{
+    "background.enabled": true,
+    "background.editor": {
+        "useFront": true,
+        "style": {
+            "background-position": "100% 100%",
+            "background-size": "auto",
+            "opacity": 0.1
+        },
+        "styles": [],
+        "images": ["C:\\Users\\whoyo\\OneDrive\\Суреттер\\wallpapers\\minecraftnezierwallpaper.jpg"],
+        "interval": 0,
+        "random": false
+    },
+    "background.sidebar":{
+        "images": ["C:\\Users\\whoyo\\OneDrive\\Суреттер\\wallpapers\\minecraftnezierwallpaper.jpg"],
+        "opacity": 0.3,
+        "size": "cover",
+        "position": "center",
+        "styles": [],
+        "interval": 0,
+        "random": false
+    },
+    "background.panel": {
+        "images": ["C:\\Users\\whoyo\\OneDrive\\Суреттер\\wallpapers\\minecraftnezierwallpaper.jpg"],
+        "opacity": 0.1,
+        "size": "cover",
+        "position": "center",
+        "styles": [],
+        "interval": 0,
+        "random": false
+    }
+}

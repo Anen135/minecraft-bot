@@ -7,7 +7,7 @@ import PerceptionManager from '../src/perception/PerceptionManager.js'
 import ConsoleObservationReporter, { formatObservation } from '../src/perception/ConsoleObservationReporter.js'
 import CommandManager from '../src/core/CommandManager.js'
 import CommandRegistry from '../src/core/CommandRegistry.js'
-import ConsoleInput from '../src/core/ConsoleInput.js'
+import ConsoleInput from '../src/inputs/ConsoleInput.js'
 import status from '../src/commands/status.js'
 import look from '../src/commands/look.js'
 import nearby from '../src/commands/nearby.js'
@@ -92,34 +92,40 @@ test('PerceptionManager scan emits one compact structured summary without action
     assert.throws(() => perception.status(), /not ready/)
 })
 
-test('commands route through perception and console replies without copying detection logic', async () => {
+test('commands route through perception and console replies without copying detection logic', async t => {
     const bot = botFixture(), perception = new PerceptionManager(bot), output = []
     const reporter = new ConsoleObservationReporter(perception.bus, { write: text => output.push(text) })
     perception.start(); reporter.start()
     const registry = new CommandRegistry([status, look, nearby, scan, environment, inventory])
     const manager = new CommandManager(bot, { bot: { prefix: '!' } }, registry, { perception })
-    manager.load(); manager.load()
-    assert.equal(bot.listenerCount('chat'), 1)
-    const input = new ConsoleInput(() => manager, { username: 'Owner', output: { write: text => output.push(text) } })
-    for (const name of ['status', 'look', 'nearby', 'scan', 'environment', 'inventory']) await input.handle(`!${name}`)
+    assert.equal(bot.listenerCount('chat'), 0)
+    const source = new PassThrough(), destination = new PassThrough()
+    const input = new ConsoleInput({ input: source, output: destination })
+    t.after(() => { input.stop(); source.destroy(); destination.destroy() })
+    input.start(line => manager.handle('Owner', line, { reply: text => output.push(text) }))
+    for (const name of ['status', 'look', 'nearby', 'scan', 'environment', 'inventory']) source.write(`!${name}\n`)
+    await new Promise(resolve => setImmediate(resolve))
     assert.equal(output.length, 6)
     assert.match(output.at(-1), /stone x4/)
-    manager.unload(); manager.unload()
     assert.equal(bot.listenerCount('chat'), 0)
     reporter.stop(); perception.stop()
 })
 
-test('console input obtains the latest connected manager and clears readline listeners', async () => {
+test('console composition obtains the latest connected manager and clears readline listeners', async () => {
     const inputStream = new PassThrough(), output = [], calls = []
     let current = null
-    const input = new ConsoleInput(() => current, { input: inputStream,
-        output: { write: text => output.push(text) }, username: 'Owner' })
-    await input.handle('!status')
+    const input = new ConsoleInput({ input: inputStream,
+        output: { write: text => output.push(text) } })
+    const callback = line => {
+        if (!current) { output.push('Bot is not ready.'); return }
+        return current.handle('Owner', line, { reply: text => output.push(text) })
+    }
+    input.start(callback); input.start(callback)
+    inputStream.write('!status\n')
     assert.match(output[0], /not ready/)
     current = { bot: { username: 'newBot' }, async handle(username, message, { reply }) {
         calls.push([username, message]); reply('ready')
     } }
-    input.start(); input.start()
     inputStream.write('!look\n')
     await new Promise(resolve => setImmediate(resolve))
     assert.deepEqual(calls, [['Owner', '!look']])
@@ -137,9 +143,9 @@ test('terminal Ctrl+C invokes shared shutdown rather than just closing readline'
     destination.isTTY = true
     destination.columns = 80
     let interrupts = 0
-    const input = new ConsoleInput(() => null, { input: source, output: destination,
+    const input = new ConsoleInput({ input: source, output: destination,
         onInterrupt() { interrupts++; input.stop() } })
-    input.start()
+    input.start(() => {})
     source.write('\u0003')
     await new Promise(resolve => setImmediate(resolve))
     assert.equal(interrupts, 1)

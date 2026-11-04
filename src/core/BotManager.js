@@ -25,6 +25,7 @@ export default class BotManager {
         this.perception = null
         this.reporter = null
         this.sessionCleanup = null
+        this.readyCleanup = null
         this.createPerception = createPerception
         this.createReporter = createReporter
     }
@@ -45,7 +46,7 @@ export default class BotManager {
         this.stopped = true
         clearTimeout(this.reconnectTimer)
         this.reconnectTimer = null
-        const bot = this.bot
+        const {bot} = this
         this.disposeSession(bot)
         bot?.quit?.()
     }
@@ -62,7 +63,11 @@ export default class BotManager {
             this.reporter = this.createReporter(this.perception.bus)
             this.reporter.start()
             this.perception.start()
-            this.onReady?.(bot, this.perception)
+            const cleanup = this.onReady?.(bot, this.perception)
+            if (typeof cleanup === 'function') {
+                if (bot === this.bot) this.readyCleanup = cleanup
+                else cleanup()
+            }
         }
 
         const onKicked = reason => { console.log('[BOT] Kicked:', reason) }
@@ -87,15 +92,22 @@ export default class BotManager {
 
     disposeSession(bot) {
         if (!bot || bot !== this.bot) return
-        this.perception?.stop()
-        this.reporter?.stop()
-        this.commandManager?.unload()
-        this.sessionCleanup?.()
+        const { readyCleanup, perception, reporter, sessionCleanup } = this
+        this.readyCleanup = null
         this.perception = null
         this.reporter = null
         this.commandManager = null
         this.sessionCleanup = null
         this.bot = null
+        // Detach session state before callbacks so cleanup cannot dispose it twice.
+        try {
+            readyCleanup?.()
+        } catch (error) {
+            console.error('[BOT] Session cleanup failed:', error)
+        }
+        perception?.stop()
+        reporter?.stop()
+        sessionCleanup?.()
     }
 
     scheduleReconnect() {
